@@ -1,0 +1,13 @@
+node_modules
+.next
+data
+.env.local
+*.tsbuildinfo
+
+# macOS / エディタ
+.DS_Store
+.claude
+
+# 一時ファイル
+*.log
+.next-prod

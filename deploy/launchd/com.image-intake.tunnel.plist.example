@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ログイン時に Cloudflare Tunnel（固定 URL）を自動起動し、切れたら繋ぎ直す。
+  ~/.cloudflared/config.yml を用意してから ~/Library/LaunchAgents/com.image-intake.tunnel.plist に置き、
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.image-intake.tunnel.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.image-intake.tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>run</string>
+    <string>image-intake</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/image-intake-tunnel.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/image-intake-tunnel.log</string>
+</dict>
+</plist>

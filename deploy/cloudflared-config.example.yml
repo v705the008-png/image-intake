@@ -1,0 +1,20 @@
+# Cloudflare Tunnel の設定（このMacで動かしているアプリを、固定の URL で公開する）
+#
+# 使い方（README の「本番公開」を参照）
+#   1. このファイルを ~/.cloudflared/config.yml にコピー
+#   2. <TUNNEL_ID> と <HOSTNAME> を、自分の値に書き換える
+#      - <TUNNEL_ID>  … `cloudflared tunnel create image-intake` で表示される ID
+#      - <HOSTNAME>   … お客さんに渡す URL のホスト名（例: upload.example.com）
+#   3. `cloudflared tunnel run image-intake` で起動
+
+tunnel: <TUNNEL_ID>
+credentials-file: /Users/<YOUR_MAC_USER>/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: <HOSTNAME>
+    service: http://localhost:3300
+    originRequest:
+      # 大きな PDF の完了確認（中身の読み取り）に時間がかかることがあるので長めに
+      connectTimeout: 30s
+      keepAliveTimeout: 120s
+  - service: http_status:404

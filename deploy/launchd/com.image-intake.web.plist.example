@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ログイン時に本番サーバーを自動起動し、落ちたら自動で立ち上げ直す。
+  <APP_DIR> をこのフォルダの絶対パスに書き換えて ~/Library/LaunchAgents/com.image-intake.web.plist に置き、
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.image-intake.web.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.image-intake.web</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string><APP_DIR>/deploy/start-production.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string><APP_DIR></string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/image-intake-web.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/image-intake-web.log</string>
+</dict>
+</plist>
