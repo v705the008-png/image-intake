@@ -16,7 +16,7 @@ import {
   resolveSize,
   type FitMode,
 } from './products';
-import { orderDir, readOrder, saveOrder } from './storage';
+import { listOrders, orderDir, readOrder, saveOrder } from './storage';
 import type { AdjustFit, Order, OrderFile, OrderOptions } from './types';
 import { pickScale, upscale, upscaylAvailable } from './upscale';
 
@@ -102,6 +102,51 @@ export function enqueue(orderId: string) {
       running.delete(orderId);
       if (rerun.delete(orderId)) enqueue(orderId);
     });
+}
+
+/** 処理待ちを拾い直す間隔（分）。スリープや再起動で中断した案件のため */
+const SWEEP_MS = Math.max(1, Number(process.env.PIPELINE_SWEEP_MINUTES ?? 3)) * 60_000;
+
+/**
+ * 「生成中（pending）」のまま止まっている案件を、もう一度処理する。
+ * Mac がスリープした・再起動した・途中で落ちた場合、状態は pending のまま残る。
+ * 起動直後と一定時間ごとにここを通すことで、復帰後に自動で片づく。
+ */
+export async function sweepPending(): Promise<string[]> {
+  const orders = await listOrders();
+  const waiting = orders.filter((o) => o.print?.status === 'pending' && !running.has(o.id));
+  const done: string[] = [];
+  // 高解像度化は重いので、1件ずつ順番に処理する
+  for (const o of waiting) {
+    if (running.has(o.id)) continue;
+    running.add(o.id);
+    try {
+      await processOrder(o.id);
+      done.push(o.id);
+    } catch (e) {
+      console.error(`[pipeline] ${o.id}`, e);
+    } finally {
+      running.delete(o.id);
+      if (rerun.delete(o.id)) enqueue(o.id);
+    }
+  }
+  return done;
+}
+
+/** サーバーが動いているあいだ、定期的に処理待ちを拾い続ける（多重起動はしない） */
+export function startPendingSweeper() {
+  const host = globalThis as typeof globalThis & { __imageIntakeSweeper?: ReturnType<typeof setInterval> };
+  if (host.__imageIntakeSweeper) return;
+  const run = () => {
+    sweepPending()
+      .then((ids) => {
+        if (ids.length) console.log(`[pipeline] 中断していた案件を処理しました: ${ids.join(', ')}`);
+      })
+      .catch((e) => console.error('[pipeline] 処理待ちの確認に失敗', e));
+  };
+  host.__imageIntakeSweeper = setInterval(run, SWEEP_MS);
+  setTimeout(run, 5_000); // 起動直後（サーバーが落ち着いてから）
+  console.log(`[pipeline] 処理待ちの自動再開を開始（${SWEEP_MS / 60_000}分ごと）`);
 }
 
 export async function processOrder(orderId: string): Promise<void> {

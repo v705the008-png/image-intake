@@ -95,6 +95,7 @@ launchctl kickstart -k gui/$(id -u)/com.image-intake.web
 
 ### 注意
 
+- **中断した処理は自動で再開します**：スリープ・再起動・強制終了で「生成中」のまま止まった案件は、サーバー起動時と3分ごとに拾い直して処理します（`src/lib/pipeline.ts` の `sweepPending` / `src/instrumentation.ts`。間隔は `PIPELINE_SWEEP_MINUTES`）。ただし**スリープ中はアップロードの受付自体ができません**（このMacがサーバーのため）
 - **Mac がスリープすると繋がらなくなります。** `deploy/start-production.sh` は起動中だけ `caffeinate` でスリープを止めます。ふたを閉じて使うなら電源につないでください
 - 本番（ポート 3300）と開発用の `npm run dev`（ポート 3210）は同時に動かせます。ビルド先が別（`.next-prod` / `.next`）なので互いに壊しません。保存先の `data/` は共通です
 - 管理画面 `/admin` もインターネットから開けます。同じ接続元からログインに 15分で10回失敗すると、しばらく受け付けません
