@@ -160,7 +160,7 @@ export type Order = {
     };
     /** トンボ付きPDFのカラー */
     colour?: {
-      mode: 'CMYK';
+      mode: 'CMYK' | 'RGB';
       profile: string;
       outputIntent: boolean;
     };

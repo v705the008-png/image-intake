@@ -3,6 +3,9 @@
 
 export type ProductId = 'tapestry' | 'poster' | 'sticker';
 
+/** 入稿データの色（rgb = 変換しない / cmyk = オフセット印刷用に変換） */
+export type ColorMode = 'rgb' | 'cmyk';
+
 /** ステッカーの仕上がり（1シートに複数枚 / 1枚ずつカット）。金額と説明は pricing.ts */
 export type StickerFinish = 'sheet' | 'single';
 /** ステッカーの形状（四角形 / 丸型 / 自由カット）。金額と説明は pricing.ts */
@@ -31,6 +34,13 @@ export type Product = {
   defaultBleedMm: number;
   /** 最初に選ばれているサイズ */
   defaultSizeId: string;
+  /**
+   * 入稿データの色。
+   * 'rgb' = sRGB のまま渡す（自社の Epson SC-S80650 など大判インクジェット。RIP 側で変換するので色域を活かせる）
+   * 'cmyk' = オフセット印刷向けに CMYK へ変換する
+   * 環境変数 PRINT_COLOR_MODE で上書きできる
+   */
+  colorMode: ColorMode;
   sizes: SizePreset[];
 };
 
@@ -44,6 +54,7 @@ export const PRODUCTS: Product[] = [
     minDpi: 100,
     defaultBleedMm: 10,
     defaultSizeId: 'tap-1000x2100',
+    colorMode: 'rgb',
     sizes: [
       { id: 'tap-1000x2100', label: '1000 × 2100 mm', widthMm: 1000, heightMm: 2100 },
       { id: 'tap-1000x2300', label: '1000 × 2300 mm', widthMm: 1000, heightMm: 2300 },
@@ -59,6 +70,7 @@ export const PRODUCTS: Product[] = [
     minDpi: 120,
     defaultBleedMm: 3,
     defaultSizeId: 'a1',
+    colorMode: 'rgb',
     sizes: [
       { id: 'a3', label: 'A3（297 × 420 mm）', widthMm: 297, heightMm: 420 },
       { id: 'a2', label: 'A2（420 × 594 mm）', widthMm: 420, heightMm: 594 },
@@ -74,6 +86,7 @@ export const PRODUCTS: Product[] = [
     minDpi: 200,
     defaultBleedMm: 3,
     defaultSizeId: 'st-100',
+    colorMode: 'rgb',
     sizes: [
       { id: 'st-50', label: '50 × 50 mm', widthMm: 50, heightMm: 50 },
       { id: 'st-70', label: '70 × 70 mm', widthMm: 70, heightMm: 70 },
@@ -115,6 +128,13 @@ export const hasAnyOption = (o: OptionFlags) => hasBleedOption(o) || hasUpscaleO
 export const optionTotalYen = (o: OptionFlags) =>
   (hasBleedOption(o) ? OPTIONS.bleed.priceYen : 0) + (hasUpscaleOption(o) ? OPTIONS.upscale.priceYen : 0);
 export const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
+
+/** 実際に使う色モード（環境変数が優先） */
+export function colorModeFor(product: Product): ColorMode {
+  const env = (process.env.PRINT_COLOR_MODE ?? '').trim().toLowerCase();
+  if (env === 'rgb' || env === 'cmyk') return env;
+  return product.colorMode;
+}
 
 /**
  * 仕上がりサイズの中で、原本の絵柄（切らずに収めたとき）が占める割合。比率が同じなら 1。

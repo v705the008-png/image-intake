@@ -3,13 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { buildExpandedPrintFile, buildPrintFile, containPlacement } from './bleed';
-import { toCmykJpeg } from './colour';
+import { toCmykJpeg, toRgbJpeg } from './colour';
 import { buildCropMarkPdf } from './cropmarks';
 import { aiExpand, aiExpandAvailable } from './expand';
 import { buildPrintPlan } from './print';
 import {
   AI_EXPAND_MIN_COVERAGE,
   artCoverage,
+  colorModeFor,
   getProduct,
   hasBleedOption,
   hasUpscaleOption,
@@ -308,14 +309,18 @@ export async function processOrder(orderId: string): Promise<void> {
       });
     }
 
-    // ── 3. CMYK に変換してトンボ付きPDF ────────────
+    // ── 3. 入稿用 PDF（既定は色を変換せず sRGB のまま） ──
     const printPath = path.join(dir, built.printFilename);
-    const colour = await toCmykJpeg(printPath, tmpPath('cmyk.jpg'));
+    const colour =
+      colorModeFor(product) === 'cmyk'
+        ? await toCmykJpeg(printPath, tmpPath('cmyk.jpg'))
+        : await toRgbJpeg(printPath, tmpPath('rgb.jpg'));
     const pdfName = withMarks
-      ? `print_${size.widthMm}x${size.heightMm}mm_bleed${bleedMm}mm_トンボ付き_CMYK.pdf`
-      : `print_${size.widthMm}x${size.heightMm}mm_CMYK.pdf`;
+      ? `print_${size.widthMm}x${size.heightMm}mm_bleed${bleedMm}mm_トンボ付き_${colour.mode}.pdf`
+      : `print_${size.widthMm}x${size.heightMm}mm_${colour.mode}.pdf`;
     const marks = await buildCropMarkPdf({
       marks: withMarks,
+      colorMode: colour.mode,
       jpegPath: colour.outPath,
       outPath: path.join(dir, pdfName),
       trimWmm: size.widthMm,
@@ -350,7 +355,7 @@ export async function processOrder(orderId: string): Promise<void> {
         filename: pdfName,
         bytes: marks.bytes,
         kind: 'printPdf',
-        label: `${withMarks ? 'トンボ付きPDF' : 'PDF（トンボなし）'}・CMYK（${colour.profile} / 紙面 ${marks.pageWidthMm} × ${marks.pageHeightMm} mm）`,
+        label: `${withMarks ? 'トンボ付きPDF' : 'PDF（トンボなし）'}・${colour.mode}（${colour.profile} / 紙面 ${marks.pageWidthMm} × ${marks.pageHeightMm} mm）`,
       },
       { filename: built.previewFilename, bytes: built.previewBytes, kind: 'preview', label: 'プレビュー' },
       { filename: built.guideFilename, bytes: built.guideBytes, kind: 'preview', label: '断裁位置ガイド' },
@@ -366,7 +371,7 @@ export async function processOrder(orderId: string): Promise<void> {
       pageHeightMm: marks.pageHeightMm,
       upscale: up.info,
       expand: expandInfo,
-      colour: { mode: 'CMYK', profile: colour.profile, outputIntent: marks.outputIntent },
+      colour: { mode: colour.mode, profile: colour.profile, outputIntent: marks.outputIntent },
     };
     await saveOrder(latest);
   } catch (e) {

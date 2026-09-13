@@ -49,6 +49,7 @@ npm run dev
 | `STORAGE_LOCAL_DIR` | 保存先フォルダ。未設定なら `image-intake/data` |
 | `MAX_FILE_MB` | 1ファイルの上限（既定 200MB） |
 | `BFL_API_KEY` | AI の描き足し（Black Forest Labs）。未設定なら描き足しは使えない |
+| `PRINT_COLOR_MODE` | 入稿データの色。`rgb`（既定・変換しない）か `cmyk` |
 | `CMYK_ICC_PROFILE` | CMYK 変換に使う ICC。未設定なら Adobe の Japan Color 2001 Coated |
 | `UPSCAYL_MODEL` | Upscayl のモデル名（既定 upscayl-standard-4x） |
 
@@ -187,19 +188,31 @@ PDFも受け取れます。ベクターデータなので扱いを分けてい�
 
 ---
 
-## トンボ付きPDFは CMYK です
+## 入稿PDFの色は「sRGB のまま」が既定
 
-Acrobat / Illustrator で「RGB と CMYK が混在」と警告が出ないよう、PDF 全体を CMYK で統一しています。
+自社の大判インクジェット（Epson SC-S80650）は、オレンジ・レッドなども積んでいてオフセット印刷より色域が広いため、
+**色を変換せず sRGB のまま渡し、変換は RIP（Epson Edge Print など）に任せます**。
 
-- 画像は **Japan Color 2001 Coated**（Adobe アプリに同梱の ICC）で CMYK に変換して埋め込み
-  - 変換のレンダリングインテントは「知覚的」。彩度の高い AI 画像でも色を潰さず、階調を保ったまま CMYK に収めます
-  - 別の印刷条件にしたいときは `.env.local` の `CMYK_ICC_PROFILE` に ICC のパスを指定
-- トンボはレジストレーション（CMYK 各100%）
-- **出力インテント**（どの印刷条件の CMYK か）と、**TrimBox / BleedBox**（仕上がり枠・塗り足し枠）を PDF に書き込み済み。印刷所のプリフライトがそのまま読めます
-- `print_…px….png/jpg` は **RGB マスター**（Photoshop で追加調整するとき用。CMYK 変換前の状態）
+実測（鮮やかな色見本での彩度の残り）:
 
-> 鮮やかな青・シアン・ネオン系は、CMYK の色域の外なので変換でくすみます（印刷の物理的な限界で、ツールの問題ではありません）。
-> 気になる色がある場合は RGB マスターを Photoshop で開き、色を詰めてから書き出してください。
+| 出し方 | 彩度の残り |
+| --- | --- |
+| **sRGB のまま（現在の既定）** | **98%** |
+| CMYK 変換（Japan Color 2001 Coated・彩度優先＋黒点補正） | 87% |
+| CMYK 変換（従来の sharp・知覚的） | 83% |
+
+CMYK に変換すると、鮮やかな青と紫はインキで再現できないため半減します（Illustrator で同じ変換をしても同じです）。
+
+- 画像は **sRGB の JPEG**（品質95・4:4:4）で埋め込み、**トンボも RGB の黒**。色空間が混ざらないので Acrobat の警告も出ません
+- **出力インテント**（sRGB）と **TrimBox / BleedBox**（仕上がり枠・塗り足し枠）は従来どおり書き込み済み
+- `print_…px….png/jpg` は **RGB マスター**（Photoshop で追加調整するとき用）
+
+### オフセット印刷に外注するとき
+
+`.env.local` に `PRINT_COLOR_MODE=cmyk` を書くと、全商品が CMYK 変換に切り替わります（商品ごとの既定は `products.ts` の `colorMode`）。
+変換は little-cms の `jpgicc`（彩度優先＋黒点補正）を使い、入っていなければ sharp にフォールバックします。
+ICC は `.env.local` の `CMYK_ICC_PROFILE` で差し替えられます（既定は Japan Color 2001 Coated）。
+ファイル名は `…_RGB.pdf` / `…_CMYK.pdf` で区別できます。
 
 ## 管理画面の「仕上げの調整」（オプションの範囲）
 

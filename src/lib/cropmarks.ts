@@ -1,5 +1,5 @@
 import fsp from 'node:fs/promises';
-import { PDFDocument, PDFName, PDFString, cmyk } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFString, cmyk, rgb } from 'pdf-lib';
 
 /**
  * トンボ（角トンボ＋センタートンボ）付きの入稿用PDFを作る。
@@ -23,6 +23,8 @@ const MARK_LEN_MM = 10;
 const MARK_WEIGHT_PT = 0.3;
 
 const REGISTRATION = cmyk(1, 1, 1, 1);
+/** RGB 入稿のときのトンボの色。CMYK を混ぜると Acrobat で「色空間の混在」警告が出るため */
+const RGB_BLACK = rgb(0, 0, 0);
 
 export type CropMarkArgs = {
   /** 塗り足しまで含めた CMYK の JPEG。PDF にはこのバイト列をそのまま埋め込む。 */
@@ -39,6 +41,8 @@ export type CropMarkArgs = {
   outputCondition?: string;
   /** false ならトンボを付けず、紙面＝仕上がりサイズの PDF にする（高画質化のみの案件用） */
   marks?: boolean;
+  /** 埋め込む画像の色。RGB なら線も RGB にして、色空間の混在を避ける */
+  colorMode?: 'RGB' | 'CMYK';
 };
 
 export type CropMarkResult = {
@@ -50,7 +54,8 @@ export type CropMarkResult = {
 };
 
 export async function buildCropMarkPdf(args: CropMarkArgs): Promise<CropMarkResult> {
-  const { jpegPath, outPath, trimWmm, trimHmm, bleedMm, iccPath, outputCondition, marks = true } = args;
+  const { jpegPath, outPath, trimWmm, trimHmm, bleedMm, iccPath, outputCondition, marks = true, colorMode = 'CMYK' } = args;
+  const markColor = colorMode === 'RGB' ? RGB_BLACK : REGISTRATION;
   const L = marks ? MARK_LEN_MM : 0;
   // 塗り足しの外側にトンボを置くぶんの余白
   const pad = bleedMm + L;
@@ -59,7 +64,7 @@ export async function buildCropMarkPdf(args: CropMarkArgs): Promise<CropMarkResu
   const pageHmm = trimHmm + pad * 2;
 
   const doc = await PDFDocument.create();
-  doc.setTitle(marks ? '入稿データ（トンボ付き / CMYK）' : '入稿データ（CMYK）');
+  doc.setTitle(`入稿データ（${marks ? 'トンボ付き / ' : ''}${colorMode}）`);
   doc.setProducer('image-intake');
   const page = doc.addPage([mm(pageWmm), mm(pageHmm)]);
 
@@ -81,7 +86,7 @@ export async function buildCropMarkPdf(args: CropMarkArgs): Promise<CropMarkResu
       start: { x: mm(x1), y: mm(y1) },
       end: { x: mm(x2), y: mm(y2) },
       thickness: MARK_WEIGHT_PT,
-      color: REGISTRATION,
+      color: markColor,
     });
 
   if (marks) {
@@ -127,8 +132,8 @@ export async function buildCropMarkPdf(args: CropMarkArgs): Promise<CropMarkResu
   let outputIntent = false;
   if (iccPath) {
     const icc = await fsp.readFile(iccPath);
-    const iccRef = doc.context.register(doc.context.flateStream(icc, { N: 4 }));
-    const name = outputCondition ?? 'CMYK';
+    const iccRef = doc.context.register(doc.context.flateStream(icc, { N: colorMode === 'RGB' ? 3 : 4 }));
+    const name = outputCondition ?? colorMode;
     const intent = doc.context.obj({
       Type: 'OutputIntent',
       S: 'GTS_PDFX',
