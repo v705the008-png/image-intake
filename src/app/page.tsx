@@ -64,6 +64,15 @@ export default function Page() {
     draftsRef.current = drafts;
   }, [drafts]);
 
+  // 画面を切り替えたら先頭から見せる。
+  // スマホでは下までスクロールしたまま「次へ」を押すと、次の画面も下端から始まってしまうため。
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [phase]);
+
   // 画面を離れるときにプレビュー URL を開放する
   useEffect(
     () => () => {
