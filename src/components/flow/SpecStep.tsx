@@ -30,6 +30,7 @@ import {
 import type { OrderOptions } from '@/lib/types';
 import { Button, Choice, StepHeading, StickyBar, VerdictBadge } from '../ui';
 import { DesignThumb, designSummary } from './DesignThumb';
+import { FitIllustration } from './FitIllustration';
 import { EstimateSummary, EstimateTotal } from './EstimateSummary';
 import { NumericInput } from '../NumericInput';
 import { canUpscaleDesign, isPdfFile, type DesignDraft, type PickedFile } from './PickStep';
@@ -484,9 +485,18 @@ function DesignSettings({
             onClick={() => set({ fit: f.id })}
             title={f.label}
             note={bleedOn ? f.noteWithBleed : f.note}
+            right={
+              <span className="block rounded-[10px] border border-line bg-surface2 p-1.5">
+                <FitIllustration mode={f.id} />
+              </span>
+            }
           />
         ))}
       </div>
+
+      <p className="mt-2 text-[11.5px] text-faint leading-relaxed">
+        参考図の赤い破線が、仕上がりのサイズです。
+      </p>
 
       {/* PDF は送信完了後に1ページ目の画像が届いたら、同じように仕上がりイメージを出す */}
       {valid && (!isPdf || (picked.thumbUrl && picked.width > 0)) && (

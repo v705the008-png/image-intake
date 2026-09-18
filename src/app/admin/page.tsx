@@ -24,8 +24,8 @@ const VERDICT: Record<string, { label: string; cls: string }> = {
 };
 
 const FIT_TEXT: Record<AdjustFit, string> = {
-  cover: 'そのまま印刷（はみ出しは切る）',
-  contain: '余白で埋める',
+  cover: '縁なし（はみ出しは切る）',
+  contain: '縁あり（余白で埋める）',
   expand: 'AIで描き足す',
 };
 
